@@ -5,13 +5,10 @@ installCRDs: true
 
 serviceAccount:
   create: true
-  # Fixed name: gke-deploy.sh binds external-secrets/external-secrets to the external-secrets
-  # GCP service account, which gke-secrets-seed.sh grants secretAccessor on exactly the
-  # configured secrets. Future SecretStore resources can use this ambient identity
+  # Fixed name: the Azure Workload Identity federated credential (added with Key Vault) binds to
+  # external-secrets/external-secrets. Future SecretStore resources can use this ambient identity
   # without providing credentials of their own.
   name: external-secrets
-  annotations:
-    iam.gke.io/gcp-service-account: external-secrets@dev-ai-1.iam.gserviceaccount.com
 
 resources:
   requests:

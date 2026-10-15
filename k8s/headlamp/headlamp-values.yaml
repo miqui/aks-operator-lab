@@ -4,9 +4,9 @@
 #
 # Highest-risk tool in the cluster (it can browse everything, and with enough RBAC exec into pods
 # and edit anything), so:
-#   - no Ingress/LoadBalancer: reach it with gke-port-forward.sh (http://localhost:4466), which
-#     rides on `kubectl port-forward` - i.e. the GKE API server, locked to the operator's IP and
-#     Google IAM;
+#   - no Ingress/LoadBalancer: reach it with aks-port-forward.sh (http://localhost:4466), which
+#     rides on `kubectl port-forward` - i.e. the AKS API server, locked to the operator's IP and
+#     Entra ID / Kubernetes RBAC;
 #   - its ServiceAccount is bound to the built-in read-only `view` ClusterRole (no Secrets, no
 #     exec, no writes), not the chart's default cluster-admin. Log in with:
 #       kubectl create token headlamp -n headlamp --duration=1h

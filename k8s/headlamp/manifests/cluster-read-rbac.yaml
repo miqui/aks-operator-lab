@@ -34,7 +34,7 @@ rules:
   - apiGroups: [rbac.authorization.k8s.io]
     resources: [roles, rolebindings, clusterroles, clusterrolebindings]
     verbs: [get, list, watch]
-  # CPU/memory figures on the node and pod pages (GKE ships metrics-server).
+  # CPU/memory figures on the node and pod pages (AKS ships metrics-server).
   - apiGroups: [metrics.k8s.io]
     resources: [nodes, pods]
     verbs: [get, list]

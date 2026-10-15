@@ -1,6 +1,6 @@
 # Headlamp (Kubernetes web UI) from its upstream chart with k8s/headlamp/headlamp-values.yaml,
 # plus this repo's namespace-level manifests for it (ResourceQuota, NetworkPolicy) from
-# k8s/headlamp/manifests/. Reachable only through `kubectl port-forward` (gke-port-forward.sh);
+# k8s/headlamp/manifests/. Reachable only through `kubectl port-forward` (aks-port-forward.sh);
 # its ServiceAccount is bound to the read-only `view` ClusterRole, not cluster-admin.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -12,7 +12,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/miqui/gke-ai-observer.git
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
       targetRevision: main
       ref: values
     - repoURL: https://kubernetes-sigs.github.io/headlamp/
@@ -22,7 +22,7 @@ spec:
         releaseName: headlamp
         valueFiles:
           - $values/k8s/headlamp/headlamp-values.yaml
-    - repoURL: https://github.com/miqui/gke-ai-observer.git
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
       targetRevision: main
       path: k8s/headlamp/manifests
   destination:

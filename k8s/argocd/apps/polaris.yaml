@@ -2,7 +2,7 @@
 # k8s/polaris/polaris-values.yaml, plus this repo's namespace-level manifests for it
 # (ResourceQuota, NetworkPolicy) from k8s/polaris/manifests/. Dashboard only (no admission
 # webhook - that's Kyverno's job), reachable only through `kubectl port-forward`
-# (gke-port-forward.sh); read-only RBAC, no Secrets.
+# (aks-port-forward.sh); read-only RBAC, no Secrets.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -13,7 +13,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/miqui/gke-ai-observer.git
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
       targetRevision: main
       ref: values
     - repoURL: https://charts.fairwinds.com/stable
@@ -23,7 +23,7 @@ spec:
         releaseName: polaris
         valueFiles:
           - $values/k8s/polaris/polaris-values.yaml
-    - repoURL: https://github.com/miqui/gke-ai-observer.git
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
       targetRevision: main
       path: k8s/polaris/manifests
   destination:

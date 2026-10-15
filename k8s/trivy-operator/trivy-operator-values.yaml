@@ -8,10 +8,10 @@
 # Only chart defaults that matter for this cluster are overridden; everything else (all six
 # scanners on, the default low-cardinality metrics set) is left alone on purpose.
 
-# GKE's own system namespaces: images this repo doesn't choose or control, so their findings
+# AKS's own system namespace: images this repo doesn't choose or control, so their findings
 # are noise in the reports. Everything else (headlamp, polaris, argocd, kyverno,
-# crossplane-system, external-secrets, trivy-system itself, ...) is scanned.
-excludeNamespaces: "kube-system,gke-managed-system,gke-managed-cim,gmp-public"
+# external-secrets, trivy-system itself, ...) is scanned.
+excludeNamespaces: "kube-system"
 
 operator:
   # Chart default is 10. The first pass scans every workload in the cluster at once; on a

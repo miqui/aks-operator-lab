@@ -6,9 +6,9 @@
 # admission time, Polaris scores what is already running - third-party charts included - across
 # reliability, efficiency and security checks, in one dashboard. So:
 #   - dashboard only, no admission webhook: Kyverno stays the single admission controller;
-#   - no Ingress/LoadBalancer and no login: reach it with gke-port-forward.sh
-#     (http://localhost:8082), i.e. through the GKE API server, locked to the operator's IP and
-#     Google IAM;
+#   - no Ingress/LoadBalancer and no login: reach it with aks-port-forward.sh
+#     (http://localhost:8082), i.e. through the AKS API server, locked to the operator's IP and
+#     Entra ID / Kubernetes RBAC;
 #   - its ServiceAccount gets the chart's read-only RBAC: the built-in `view` ClusterRole (no
 #     Secrets) plus get/list on nodes and RBAC objects (for the RBAC checks). No writes, no exec.
 
@@ -51,18 +51,11 @@ webhook:
 mergeConfig: true
 config:
   exemptions:
-    # GKE-managed namespaces: nothing there is ours to fix. A namespace-only exemption (no
+    # Platform-managed namespaces: nothing there is ours to fix. A namespace-only exemption (no
     # controllerNames, no rules) exempts every check for every workload in it.
     - namespace: kube-system
     - namespace: kube-node-lease
     - namespace: kube-public
-    - namespace: gmp-system
-    - namespace: gmp-public
-    - namespace: gke-managed-system
-    - namespace: gke-managed-cim
-    - namespace: gke-managed-networking-dra-driver
-    - namespace: gke-managed-volumepopulator
-    - namespace: gke-gmp-system
     # sensitiveContainerEnvVar / sensitiveConfigmapContent match on key *names* (containing
     # "key", "token", "secret", ...). Checked on the live cluster (2026-09-27), these hold no
     # secret values - header names, feature flags, empty defaults and the *names* of Secrets - so
@@ -70,6 +63,3 @@ config:
     - namespace: trivy-system
       controllerNames: [trivy-operator-config]
       rules: [sensitiveConfigmapContent]
-    - namespace: crossplane-system
-      controllerNames: [crossplane]
-      rules: [sensitiveContainerEnvVar]

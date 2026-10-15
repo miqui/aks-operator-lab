@@ -1,12 +1,12 @@
 # Values for the `argo/argo-cd` chart 10.9.2 (Argo CD v3.5.3).
 #
 # Used twice, with the same release name and version, so the two never disagree:
-#   1. gke-bootstrap.sh's one-off `helm upgrade --install argocd argo/argo-cd` (Argo can't install
+#   1. aks-bootstrap.sh's one-off `helm upgrade --install argocd argo/argo-cd` (Argo can't install
 #      itself before it exists);
 #   2. apps/argocd.yaml, after which Argo CD manages its own release like any other chart -
 #      version bumps and value changes are merged commits from then on.
 #
-# Access is port-forward only (gke-port-forward.sh -> https://localhost:8081); nothing here
+# Access is port-forward only (aks-port-forward.sh -> https://localhost:8081); nothing here
 # creates an Ingress, LoadBalancer or Gateway route.
 
 global:

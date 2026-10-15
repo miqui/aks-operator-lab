@@ -1,16 +1,12 @@
 # Values for the `kyverno/kyverno` chart (https://kyverno.io - policy engine; the policies
 # themselves live in k8s/policies/ and are applied by their own Argo CD Application). Rendered by
 # k8s/argocd/apps/kyverno.yaml, chart 3.9.1 = Kyverno v1.19.1 (tested Kubernetes range
-# 1.33-1.35; GKE's stable channel is within or close to it).
+# 1.33-1.35; check AKS's stable channel against it).
 #
 # Left at chart defaults on purpose: one replica per controller (the chart's HA guidance is 2-3,
 # which is overkill for a dev cluster) and its default resource requests (about 400m CPU / 320Mi
 # memory across the four controllers).
 #
-# GKE private nodes: the control plane reaches the admission webhook on port 9443 only because
-# gke-deploy.sh adds a firewall rule for it - without that, every matching create/update times
-# out.
-
 features:
   # Required for PolicyExceptions to take effect at all (none exist yet), and only honoured
   # from the namespace named here (cluster admins, not app namespaces).
@@ -33,11 +29,7 @@ config:
           values:
             - kube-system
             - argocd
-            - crossplane-system
             - external-secrets
-            - gke-managed-system
-            - gke-managed-cim
-            - gmp-public
 
 # The reports controller can only list/watch the kinds it was granted RBAC for. Without this,
 # restrict-cluster-admin-bindings shows `ready: false` ("missing permissions ... clusterrolebindings")

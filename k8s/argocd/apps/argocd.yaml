@@ -1,6 +1,6 @@
-# Argo CD managing its own Helm release. gke-bootstrap.sh installs the same chart version with the
+# Argo CD managing its own Helm release. aks-bootstrap.sh installs the same chart version with the
 # same values and release name first; from then on this Application owns it, so upgrading Argo CD
-# is a merged change to targetRevision below (and the version in gke-bootstrap.sh, for fresh
+# is a merged change to targetRevision below (and the version in aks-bootstrap.sh, for fresh
 # clusters). prune is off: a bad render must never be able to delete the controller doing the
 # deleting.
 apiVersion: argoproj.io/v1alpha1
@@ -13,7 +13,7 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: https://github.com/miqui/gke-ai-observer.git
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
       targetRevision: main
       ref: values
     - repoURL: https://argoproj.github.io/argo-helm
