@@ -13,7 +13,8 @@
 #   SUBSCRIPTION_ID=<id> ./aks-deploy.sh [--user <upn>] [--dry-run]
 #
 # Overridable env vars: AZ_USER, SUBSCRIPTION_ID, RESOURCE_GROUP, LOCATION, CLUSTER, VM_SIZE,
-#                       MIN_NODES, MAX_NODES, NODE_DISK_SIZE_GB, ZONE
+#                       MIN_NODES, MAX_NODES, NODE_DISK_SIZE_GB, ZONE, VNET_NAME, VNET_CIDR,
+#                       SUBNET_NAME, SUBNET_CIDR, IDENTITY_NAME
 set -euo pipefail
 trap 'echo "ERROR: failed at line $LINENO (exit $?)" >&2' ERR
 cd "$(dirname "$0")"
@@ -38,6 +39,15 @@ MIN_NODES="${MIN_NODES:-3}"
 MAX_NODES="${MAX_NODES:-4}"
 NODE_DISK_SIZE_GB="${NODE_DISK_SIZE_GB:-30}"
 ZONE="${ZONE:-1}"
+# Dedicated network: the cluster joins this VNet/subnet instead of an auto-generated one. It must
+# not overlap the AKS service CIDR (10.0.0.0/16) or the overlay pod CIDR (10.244.0.0/16).
+VNET_NAME="${VNET_NAME:-dev-vnet}"
+VNET_CIDR="${VNET_CIDR:-10.10.0.0/16}"
+SUBNET_NAME="${SUBNET_NAME:-dev-subnet}"
+SUBNET_CIDR="${SUBNET_CIDR:-10.10.0.0/20}"
+# User-assigned identity the cluster runs as. An admin creates it once and grants it Network
+# Contributor on the resource group (miquidev cannot create role assignments); see AZURE.md.
+IDENTITY_NAME="${IDENTITY_NAME:-id-aks-dev}"
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
@@ -63,6 +73,15 @@ az group show -n "$RESOURCE_GROUP" --query name -o tsv >/dev/null || {
   echo "ERROR: resource group $RESOURCE_GROUP not found or not visible to $CURRENT_USER" >&2; exit 1;
 }
 
+IDENTITY_ID=$(az identity show -g "$RESOURCE_GROUP" -n "$IDENTITY_NAME" --query id -o tsv 2>/dev/null || true)
+[[ -n "$IDENTITY_ID" ]] || {
+  echo "ERROR: managed identity $IDENTITY_NAME not found in $RESOURCE_GROUP." >&2
+  echo "       An admin must create it and grant Network Contributor first (see AZURE.md)." >&2
+  exit 1
+}
+echo "    identity: $IDENTITY_NAME"
+SUBNET_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Network/virtualNetworks/${VNET_NAME}/subnets/${SUBNET_NAME}"
+
 log "Detecting operator public IP for API server authorized ranges"
 MY_IP=$(curl -4 -s --max-time 10 ifconfig.me || true)
 [[ "$MY_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
@@ -78,21 +97,40 @@ CMD=(az aks create
   --node-osdisk-type Managed --node-osdisk-size "$NODE_DISK_SIZE_GB"
   --node-count "$MIN_NODES"
   --enable-cluster-autoscaler --min-count "$MIN_NODES" --max-count "$MAX_NODES"
+  --vnet-subnet-id "$SUBNET_ID"
   --network-plugin azure --network-plugin-mode overlay
   --network-dataplane cilium --network-policy cilium
   --enable-oidc-issuer --enable-workload-identity
-  --enable-managed-identity
+  --assign-identity "$IDENTITY_ID"
   --api-server-authorized-ip-ranges "$MY_IP/32"
   --auto-upgrade-channel stable
   --no-ssh-key)
 
+VNET_CMD=(az network vnet create
+  --resource-group "$RESOURCE_GROUP" --name "$VNET_NAME" --location "$LOCATION"
+  --address-prefixes "$VNET_CIDR"
+  --subnet-name "$SUBNET_NAME" --subnet-prefixes "$SUBNET_CIDR")
+
 if [[ "$DRY_RUN" == 1 ]]; then
   log "Dry run: would execute"
+  if az network vnet show -g "$RESOURCE_GROUP" -n "$VNET_NAME" &>/dev/null; then
+    echo "    (VNet $VNET_NAME already exists)"
+  else
+    printf '    %q' "${VNET_CMD[@]}"; echo
+  fi
   printf '    %q' "${CMD[@]}"; echo
   exit 0
 fi
 
-# ---- 1. Cluster -----------------------------------------------------------------
+# ---- 1. Network ---------------------------------------------------------------
+log "Ensuring VNet $VNET_NAME ($VNET_CIDR) / subnet $SUBNET_NAME ($SUBNET_CIDR)"
+if az network vnet show -g "$RESOURCE_GROUP" -n "$VNET_NAME" &>/dev/null; then
+  echo "    exists, skipping"
+else
+  "${VNET_CMD[@]}" --output none
+fi
+
+# ---- 2. Cluster -----------------------------------------------------------------
 log "Creating cluster: $CLUSTER (zone $ZONE, $VM_SIZE, ${NODE_DISK_SIZE_GB}GB, autoscaling $MIN_NODES..$MAX_NODES)"
 if az aks show -g "$RESOURCE_GROUP" -n "$CLUSTER" &>/dev/null; then
   echo "    exists, skipping (cluster-level settings are creation-time; recreate to change them)"
@@ -100,7 +138,7 @@ else
   "${CMD[@]}"
 fi
 
-# ---- 2. Credentials ---------------------------------------------------------
+# ---- 3. Credentials ---------------------------------------------------------
 az aks get-credentials -g "$RESOURCE_GROUP" -n "$CLUSTER" --overwrite-existing
 kubectl get nodes -o wide
 

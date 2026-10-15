@@ -32,8 +32,8 @@
           <mxGeometry x="260" y="190" width="800" height="610" as="geometry"/>
         </mxCell>
 
-        <mxCell id="pool" value="Node pool nodepool1 (zone 1): 3-4 x Standard_D2s_v6 (2 vCPU / 8 GB, 30 GB disk), autoscaler; no public node IPs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
-          <mxGeometry x="280" y="260" width="760" height="40" as="geometry"/>
+        <mxCell id="pool" value="VNet dev-vnet 10.10.0.0/16 / subnet dev-subnet 10.10.0.0/20 - node pool nodepool1 (zone 1): 3-4 x Standard_D2s_v6 (2 vCPU / 8 GB, 30 GB disk), autoscaler; no public node IPs; runs as identity id-aks-dev (Network Contributor on RG)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="250" width="760" height="60" as="geometry"/>
         </mxCell>
 
         <!-- Namespaces / apps -->
@@ -58,7 +58,7 @@
         <mxCell id="ns-ops" value="default + future operator namespaces&#xa;(Kyverno Deny policies in default)&#xa;operators under development / test" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="280" y="560" width="550" height="80" as="geometry"/>
         </mxCell>
-        <mxCell id="mc" value="Node resource group MC_rg-aks-lab_dev-cluster_eastus (VMSS, disks, load balancer, public IP) - created and deleted with the cluster" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+        <mxCell id="mc" value="Node resource group MC_rg-aks-lab_dev-cluster_eastus (VMSS, disks, load balancer, public IP) - created and deleted with the cluster. dev-vnet lives in rg-aks-lab and survives teardown." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
           <mxGeometry x="280" y="680" width="760" height="50" as="geometry"/>
         </mxCell>
 

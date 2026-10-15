@@ -85,6 +85,28 @@ SSH key is generated or used.
 
 Stop or delete clusters when not in use: `az aks stop -g rg-aks-lab -n <cluster>`.
 
+## 7b. Cluster identity for the dedicated VNet (admin, one time)
+
+The cluster runs in its own VNet (`dev-vnet`, created by `aks-deploy.sh`). Joining a custom subnet
+needs the cluster's identity to hold `Network Contributor`, and `miquidev` cannot create role
+assignments, so the admin creates the identity and grants it once. Scope is this resource group only.
+
+```bash
+az identity create -g rg-aks-lab -n id-aks-dev -l eastus --query "{name:name, principalId:principalId}" -o table
+
+az role assignment create \
+  --assignee-object-id <IDENTITY_PRINCIPAL_ID> \
+  --assignee-principal-type ServicePrincipal \
+  --role "Network Contributor" \
+  --scope /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-aks-lab
+```
+
+Verify (read-only):
+
+```bash
+az role assignment list --assignee <IDENTITY_PRINCIPAL_ID> --all --query "[].{role:roleDefinitionName, scope:scope}" -o table
+```
+
 ## 8. Cluster lifecycle (as `miquidev`, in a separate CLI profile)
 
 The cluster is created and deleted by the scripts in this repo, never by the admin account.
@@ -100,7 +122,8 @@ export SUBSCRIPTION_ID=<SUBSCRIPTION_ID>
 ./aks-bootstrap.sh                                 # Argo CD + the GitOps platform
 az aks stop  -g rg-aks-lab -n dev-cluster          # pause: stops node billing, keeps the cluster
 az aks start -g rg-aks-lab -n dev-cluster
-./aks-teardown.sh --yes                            # delete the cluster only
+./aks-teardown.sh --yes                            # delete the cluster (VNet kept)
+./aks-teardown.sh --yes --purge                    # ...and delete dev-vnet too
 ```
 
 Quota checks used before choosing the VM size (read-only):

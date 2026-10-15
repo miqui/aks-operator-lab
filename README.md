@@ -35,8 +35,8 @@ valid cluster credentials, and binds on `127.0.0.1` only.
   | Setting | Value |
   | --- | --- |
   | Nodes | `Standard_D2s_v6` (2 vCPU / 8 GB), 30 GB managed OS disk, autoscaling 3-4, zone 1 |
-  | Network | Azure CNI Overlay with the Cilium dataplane and network policy (enforces NetworkPolicies) |
-  | Identity | OIDC issuer and Workload Identity; managed identity for the cluster |
+  | Network | Dedicated VNet `dev-vnet` (`10.10.0.0/16`) with subnet `dev-subnet` (`10.10.0.0/20`) in `rg-aks-lab`; Azure CNI Overlay with the Cilium dataplane and network policy (enforces NetworkPolicies) |
+  | Identity | User-assigned managed identity `id-aks-dev` (Network Contributor on the resource group, granted by an admin); OIDC issuer and Workload Identity |
   | API access | API server accepts only the operator's public IP (`/32`); nodes have no public IPs |
   | SSH | none (`--no-ssh-key`) |
 
@@ -107,7 +107,8 @@ Debugging commands are in [KYVERNO.md](KYVERNO.md).
 
 Requirements:
 - `az` (Azure CLI), `kubectl` and `helm`
-- the cluster user's Azure login (see [AZURE.md](AZURE.md) for the admin-side setup)
+- the cluster user's Azure login (see [AZURE.md](AZURE.md) for the admin-side setup, including the
+  one-time `id-aks-dev` identity)
 - the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), once secrets exist
 
 ```bash
@@ -136,17 +137,18 @@ that the repo is readable and warns about unpushed commits.
 
 **What each script does:**
 
-- `aks-deploy.sh` checks the signed-in user and the resource group, finds your public IP, and runs
-  `az aks create`. It skips creation if the cluster already exists (cluster-level settings are
+- `aks-deploy.sh` checks the signed-in user, the resource group and the `id-aks-dev` identity,
+  finds your public IP, creates the VNet if missing, and runs `az aks create`. It skips creation if the cluster already exists (cluster-level settings are
   creation-time; recreate to change them). Overridable env vars: `AZ_USER`, `RESOURCE_GROUP`,
-  `LOCATION`, `CLUSTER`, `VM_SIZE`, `MIN_NODES`, `MAX_NODES`, `NODE_DISK_SIZE_GB`, `ZONE`.
+  `LOCATION`, `CLUSTER`, `VM_SIZE`, `MIN_NODES`, `MAX_NODES`, `NODE_DISK_SIZE_GB`, `ZONE`,
+  `VNET_NAME`, `VNET_CIDR`, `SUBNET_NAME`, `SUBNET_CIDR`, `IDENTITY_NAME`.
 - `aks-secrets-seed.sh` creates or updates the Key Vault secrets listed in its `SECRETS` array. It
   adds a version only when the value changed.
 - `aks-bootstrap.sh` runs a preflight (user, kubectl context, public repo). It then Helm-installs
   Argo CD, applies the root Application and waits until every Application is Synced + Healthy.
   Safe to re-run.
-- `aks-teardown.sh` deletes the cluster only (`--yes` skips the prompt). The resource group, role
-  assignment, budget and Key Vault are kept.
+- `aks-teardown.sh` deletes the cluster (`--yes` skips the prompt). The resource group, VNet,
+  identity, role assignments, budget and Key Vault are kept; `--purge` also deletes the VNet.
 - `aks-port-forward.sh` opens the local tunnels to the tools.
 
 **Cost.** Nodes bill while running: three `D2s_v6` cost roughly $0.29/hour (about $210/month), so
