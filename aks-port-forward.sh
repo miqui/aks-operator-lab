@@ -16,6 +16,8 @@ TOOLS=(
   "argocd|argocd|argocd-server|8081|443|https"
   "headlamp|headlamp|headlamp|4466|80|http"
   "polaris|polaris|polaris-dashboard|8082|80|http"
+  "grafana|monitoring|grafana|3000|80|http"
+  "prometheus|monitoring|kps-prometheus|9090|9090|http"
 )
 
 command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found" >&2; exit 1; }
@@ -68,6 +70,8 @@ Logins:
                (self-signed cert - accept it in the browser)
   headlamp     kubectl create token headlamp -n headlamp --duration=1h      (read-only)
   polaris      none - read-only report, reachable only through this tunnel
+  grafana      admin / kubectl -n monitoring get secret grafana -o jsonpath='{.data.admin-password}' | base64 -d
+  prometheus   none - query UI, reachable only through this tunnel
 
 Ctrl-C to stop.
 EOF

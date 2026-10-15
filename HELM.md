@@ -14,11 +14,13 @@ exists to take it over.
 | Kyverno | `kyverno/kyverno` | 3.9.1 (v1.19.1) | `k8s/kyverno/kyverno-values.yaml` | `kyverno` |
 | Headlamp | `headlamp/headlamp` | 0.45.0 | `k8s/headlamp/headlamp-values.yaml` | `headlamp` |
 | Polaris | `fairwinds-stable/polaris` | 6.0.1 | `k8s/polaris/polaris-values.yaml` | `polaris` |
+| kube-prometheus-stack | `prometheus-community/kube-prometheus-stack` | 92.9.0 (Operator v0.94.1) | `k8s/monitoring/monitoring-values.yaml` | `monitoring` |
 | Trivy Operator | `aqua/trivy-operator` | 0.36.0 | `k8s/trivy-operator/trivy-operator-values.yaml` | `trivy-operator` |
 
 Repositories: `argo` https://argoproj.github.io/argo-helm, `external-secrets`
 https://charts.external-secrets.io, `kyverno` https://kyverno.github.io/kyverno/, `headlamp` https://kubernetes-sigs.github.io/headlamp/,
-`fairwinds-stable` https://charts.fairwinds.com/stable, `aqua` https://aquasecurity.github.io/helm-charts/.
+`fairwinds-stable` https://charts.fairwinds.com/stable, `aqua` https://aquasecurity.github.io/helm-charts/, `prometheus-community`
+https://prometheus-community.github.io/helm-charts.
 
 ## Changing values or versions
 

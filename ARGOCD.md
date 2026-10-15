@@ -20,6 +20,7 @@ Everything is an Application, created by the `root` Application (app of apps) fr
 | `kyverno-policies` | -2 | `k8s/policies/` |
 | `headlamp` | -1 | chart + `k8s/headlamp/headlamp-values.yaml` + `k8s/headlamp/manifests/` |
 | `polaris` | -1 | chart + `k8s/polaris/polaris-values.yaml` + `k8s/polaris/manifests/` |
+| `monitoring` | -1 | kube-prometheus-stack chart + `k8s/monitoring/monitoring-values.yaml` (Prometheus, Grafana, kube-state-metrics, node-exporter) |
 | `trivy-operator` | -1 | chart + `k8s/trivy-operator/trivy-operator-values.yaml` - see [TRIVY.md](TRIVY.md) |
 
 All track `main` with `automated: {prune: true, selfHeal: true}` (except `argocd`: no prune). UI:

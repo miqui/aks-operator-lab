@@ -1,0 +1,38 @@
+# Cluster monitoring from the upstream kube-prometheus-stack chart with
+# k8s/monitoring/monitoring-values.yaml: Prometheus (via the Prometheus Operator), Grafana,
+# kube-state-metrics, node-exporter and the stock Kubernetes dashboards and alert rules. It
+# watches the cluster itself, not application workloads. Reachable only through
+# `kubectl port-forward` (aks-port-forward.sh).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/miqui/aks-operator-lab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      # Chart 92.9.0 = Prometheus Operator v0.94.1
+      targetRevision: 92.9.0
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/k8s/monitoring/monitoring-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The Prometheus Operator CRDs exceed the 256KiB last-applied-configuration annotation
+      # limit of client-side apply.
+      - ServerSideApply=true

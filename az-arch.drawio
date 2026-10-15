@@ -55,6 +55,9 @@
         <mxCell id="ns-trivy" value="trivy-system&#xa;Trivy Operator (CVE scans)&#xa;wave -1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
           <mxGeometry x="660" y="440" width="170" height="80" as="geometry"/>
         </mxCell>
+        <mxCell id="ns-mon" value="monitoring&#xa;Prometheus + Grafana&#xa;kube-state-metrics, node-exporter&#xa;cluster only, no PVCs, wave -1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="850" y="440" width="190" height="80" as="geometry"/>
+        </mxCell>
         <mxCell id="ns-ops" value="default + future operator namespaces&#xa;(Kyverno Deny policies in default)&#xa;operators under development / test" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="280" y="560" width="550" height="80" as="geometry"/>
         </mxCell>
@@ -74,7 +77,7 @@
         <mxCell id="op" value="1Password&#xa;source of truth for secrets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6e6e6;strokeColor=#666666;" vertex="1" parent="1">
           <mxGeometry x="1110" y="500" width="210" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="pf" value="Operator workstation&#xa;kubectl port-forward (127.0.0.1)&#xa;Argo CD :8081, Headlamp :4466, Polaris :8082" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;" vertex="1" parent="1">
+        <mxCell id="pf" value="Operator workstation&#xa;kubectl port-forward (127.0.0.1)&#xa;Argo CD :8081, Headlamp :4466, Polaris :8082, Grafana :3000, Prometheus :9090" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;" vertex="1" parent="1">
           <mxGeometry x="60" y="580" width="110" height="130" as="geometry"/>
         </mxCell>
 
