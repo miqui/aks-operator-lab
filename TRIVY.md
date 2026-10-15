@@ -32,9 +32,9 @@ values file, merge, and Argo rolls it out.
   `trivy.javaDb*` and `policiesBundle.*` for a mirror.
 - **`scanJobsConcurrentLimit: 3`** (chart default 10) so the first full-cluster pass doesn't starve
   everything else on a 3-node cluster. That first pass takes a few minutes.
-- **`excludeNamespaces: kube-system,gke-managed-system,gke-managed-cim,gmp-public`**: GKE's own
-  images are noise (and not ours to fix). The cost is that `InfraAssessmentReports` for pods in
-  `kube-system` are never produced (GKE's control plane isn't in the cluster anyway). Node checks still run as `ClusterInfraAssessmentReports`, but the operator exports no
+- **`excludeNamespaces: kube-system`**: AKS's own system images are noise (and not ours to fix).
+  The cost is that `InfraAssessmentReports` for pods in `kube-system` are never produced (AKS's
+  control plane isn't in the cluster anyway). Node checks still run as `ClusterInfraAssessmentReports`, but the operator exports no
   metric for them, so they're kubectl-only (below).
 - **Default low-cardinality metrics.** The per-CVE-ID metric (`metricsVulnIdEnabled`) and the
   `*Info` metrics are off. Use the reports for detail.

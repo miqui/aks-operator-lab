@@ -1,14 +1,14 @@
-# GKE Operations Notes
+# AKS Operations Notes
 
 Short explanations of cluster events that look alarming but aren't. The cluster is zonal,
-`e2-standard-2` workers, node autoscaling 3..5 (`gke-deploy.sh`).
+`Standard_D2s_v6` workers, node autoscaling 3..4 (`aks-deploy.sh`).
 
-## "Cluster Autoscaler skipped scaling up default-pool" for `node-collector-*`
+## "Cluster Autoscaler skipped scaling up nodepool1" for `node-collector-*`
 
 Seen as a `NotTriggerScaleUp` note, e.g.:
 
 > The pod node-collector-6cdc7f778f-265nh has a nodeSelector or nodeAffinity block configured...
-> Because the default-pool node pool does not carry the matching labels... the Cluster Autoscaler
+> Because the nodepool1 node pool does not carry the matching labels... the Cluster Autoscaler
 > skipped scaling up this pool.
 
 **Benign - no action needed.**

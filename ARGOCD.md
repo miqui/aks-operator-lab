@@ -1,6 +1,6 @@
 # ArgoCD — commands & troubleshooting
 
-Day-to-day ArgoCD commands for this repo's GKE dev cluster. Everything is `kubectl`-based: the
+Day-to-day ArgoCD commands for this repo's AKS dev cluster. Everything is `kubectl`-based: the
 `argocd` CLI isn't installed here (an optional CLI section is at the end). For the design — what
 ArgoCD owns and why — see the "Continuous Deployment with ArgoCD" section of `README.md`; for
 `argocd-repo-server` liveness-probe failures see `KUBECTL.md`.
@@ -8,7 +8,7 @@ ArgoCD owns and why — see the "Continuous Deployment with ArgoCD" section of `
 ## What's in the cluster
 
 Everything is an Application, created by the `root` Application (app of apps) from
-`k8s/argocd/apps/`; `gke-bootstrap.sh` only Helm-installs Argo CD and applies
+`k8s/argocd/apps/`; `aks-bootstrap.sh` only Helm-installs Argo CD and applies
 `k8s/argocd/root-application.yaml`.
 
 | Application | Wave | Owns |
@@ -16,21 +16,19 @@ Everything is an Application, created by the `root` Application (app of apps) fr
 | `root` | - | every file in `k8s/argocd/apps/` |
 | `argocd` | -4 | Argo CD itself (chart `argo/argo-cd` + `k8s/argocd/argocd-values.yaml`); never prunes |
 | `external-secrets` | -4 | External Secrets Operator (chart + `k8s/external-secrets/values.yaml`) |
-| `crossplane` | -4 | Crossplane core (chart + `k8s/crossplane/values.yaml`) |
 | `kyverno` | -3 | Kyverno (chart + `k8s/kyverno/kyverno-values.yaml`) |
-| `platform` | -3 | `k8s/platform/`: Crossplane GCP provider family/functions/ClusterProviderConfig |
 | `kyverno-policies` | -2 | `k8s/policies/` |
 | `headlamp` | -1 | chart + `k8s/headlamp/headlamp-values.yaml` + `k8s/headlamp/manifests/` |
 | `polaris` | -1 | chart + `k8s/polaris/polaris-values.yaml` + `k8s/polaris/manifests/` |
 | `trivy-operator` | -1 | chart + `k8s/trivy-operator/trivy-operator-values.yaml` - see [TRIVY.md](TRIVY.md) |
 
 All track `main` with `automated: {prune: true, selfHeal: true}` (except `argocd`: no prune). UI:
-`./gke-port-forward.sh argocd` -> `https://localhost:8081`.
+`./aks-port-forward.sh argocd` -> `https://localhost:8081`.
 
-Three `argocd-cm` customizations in `argocd-values.yaml` matter for this layout: the Application
-health check (without it sync waves wouldn't wait for a child to be Healthy), Crossplane health checks
-(so a GCP resource still provisioning shows as Progressing, not Healthy), and `controller.diff.server.side`
-(client-side diff misreads the big server-side-applied CRDs as permanently OutOfSync).
+Two `argocd-cm` customizations in `argocd-values.yaml` matter for this layout: the Application
+health check (without it sync waves wouldn't wait for a child to be Healthy) and
+`controller.diff.server.side` (client-side diff misreads the big server-side-applied CRDs as
+permanently OutOfSync).
 
 ## Status
 
@@ -101,7 +99,7 @@ While paused, `kubectl get application …` will show `OutOfSync` for anything y
 ## Drift you should expect
 
 **Secrets don't drift.** Git holds `ExternalSecret`s, not Secrets; External Secrets owns the actual
-Secrets (built from GCP Secret Manager), so there's no placeholder for a sync to write back.
+Secrets (built from Azure Key Vault), so there's no placeholder for a sync to write back.
 
 **Hand edits get reverted.** With `selfHeal` on, `kubectl apply`-ing a manifest from an
 unmerged branch is undone on the next reconcile. Change it in git and merge instead.
@@ -142,8 +140,7 @@ delay, or a `ComparisonError` above)? Is the file actually referenced - listed i
 `kustomization.yaml`, or in a directory an Application syncs?
 
 **A wave is stuck.** `kubectl get applications -n argocd`: the root Application only starts wave N+1
-once every wave-N Application is Healthy. `platform` stays Progressing until the Crossplane
-provider packages are installed and Healthy (`kubectl get providers.pkg.crossplane.io,managed`).
+once every wave-N Application is Healthy. Find the one that isn't with the status query above.
 
 **Stuck `Progressing` / `Degraded`.** Find the resource with the per-resource query above, then
 debug that resource (`kubectl describe`, `kubectl get events`). A Deployment rejected by Kyverno in
@@ -155,7 +152,7 @@ ArgoCD applies them — see the "Working with the policies" section of `README.m
 ## Login
 
 ```bash
-./gke-port-forward.sh argocd       # https://localhost:8081 (self-signed cert), user admin, password:
+./aks-port-forward.sh argocd       # https://localhost:8081 (self-signed cert), user admin, password:
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
 ```
 

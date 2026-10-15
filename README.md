@@ -1,30 +1,20 @@
-# gke-operator-lab
+# aks-operator-lab
 
-An environment for developing custom Kubernetes operators and testing third-party operators on
-a dev [GKE](https://cloud.google.com/kubernetes-engine) cluster in GCP project **`dev-ai-1`**.
-Argo CD deploys the platform, and Crossplane can provision GCP resources needed by experiments.
+An environment for developing custom Kubernetes operators and testing third-party operators on a
+dev [AKS](https://learn.microsoft.com/azure/aks/) cluster in Azure. Argo CD deploys the platform
+from this repo.
 
 > **Status:** the platform layer is in place. Operator development tooling and repeatable test
-> scenarios are not implemented yet. This repo started as a copy of `miqui/gke-springboot-grpc-o2`. The Java gRPC
-> service, Cloud SQL, Hazelcast, the public Gateway and the Grafana/Prometheus/OpenObserve stack
-> were removed. That repo and its GCP project (`k8s-dev-412419`) are untouched.
-
-> **Migration in progress (GKE → AKS):** this repo is moving to a dev
-> [AKS](https://learn.microsoft.com/azure/aks/) cluster in Azure, created by a non-admin user.
-> The AKS cluster scripts exist (see [Deployment to AKS](#deployment-to-aks-azure)), and
-> [AZURE.md](AZURE.md) records the Azure access setup. The platform layer (Argo CD bootstrap,
-> secrets seeding, port-forward, Crossplane, External Secrets) is **still GKE-specific** and not
-> yet ported. Once the AKS flow works end to end, all GKE content, including the sections below
-> marked GKE, will be removed.
+> scenarios are not implemented yet. The architecture diagram is [az-arch.drawio](az-arch.drawio).
 
 The cluster is meant to be **short-lived**: create it for an experiment, tear it down after a few
-hours, recreate it for the next one. Secrets and service accounts live outside it and are reused.
+hours, recreate it for the next one. Secrets and the resource group live outside it and are reused.
 
 ## Stack URLs
 
 Nothing is public: there is no Ingress, Gateway or LoadBalancer. Every UI is reached through
-`./gke-port-forward.sh`. It tunnels through the GKE API server, which only accepts your IP plus
-Google IAM, and binds on `127.0.0.1` only.
+`./aks-port-forward.sh`. It tunnels through the AKS API server, which only accepts your IP plus
+valid cluster credentials, and binds on `127.0.0.1` only.
 
 | Component | URL | Login |
 | --- | --- | --- |
@@ -34,40 +24,34 @@ Google IAM, and binds on `127.0.0.1` only.
 
 ## Architecture
 
-- **Project isolation**: every script takes `PROJECT_ID` (required, no default) and exports it as
-  `CLOUDSDK_CORE_PROJECT`. All `gcloud` calls are therefore pinned to that project, and your
-  gcloud configuration's default project is never changed. `gke-bootstrap.sh` refuses to run if
-  the manifests in `k8s/` are not for the given project.
-- **Cluster** (`gke-deploy.sh`): zonal GKE Standard cluster `dev-cluster` in `us-central1-a`,
-  `e2-standard-2` nodes autoscaling 3-5, release channel `stable`.
-  - **Private nodes** (no external IPs), with egress through Cloud NAT. Every image is public
-    (ghcr.io, Docker Hub, quay.io, ...), so no registry is needed. The control plane only accepts
-    the operator's public IP (master authorized networks).
-  - **Dataplane V2** enforces NetworkPolicies. **Workload Identity** gives in-cluster controllers
-    Google credentials without key files. Shielded Nodes with secure boot. GKE Managed
-    Prometheus is off.
-  - Nodes run as a dedicated `gke-dev-nodes` service account with only
-    `roles/container.defaultNodeServiceAccount`, not the default compute account (which has
-    project Editor).
-  - A firewall rule lets the control plane reach admission webhooks on 8443/9443 (Kyverno,
-    Crossplane) on older peering-based private clusters. Current PSC-based clusters need no rule.
+- **Access model**: the Azure setup is split between an admin account and a least-privilege
+  cluster user. The admin creates the resource group, grants the cluster user `Contributor` on
+  that resource group only, and sets a $25/month budget alert; see [AZURE.md](AZURE.md). Every
+  `aks-*.sh` script refuses to change anything unless the signed-in user is the expected one
+  (`miquidev@mmaqhotmail.onmicrosoft.com` by default, or `--user <upn>` / `AZ_USER`).
+- **Cluster** (`aks-deploy.sh`): zonal AKS cluster `dev-cluster` in `rg-aks-lab` (`eastus`),
+  free tier, `stable` auto-upgrade channel.
+
+  | Setting | Value |
+  | --- | --- |
+  | Nodes | `Standard_D2s_v6` (2 vCPU / 8 GB), 30 GB managed OS disk, autoscaling 3-4, zone 1 |
+  | Network | Azure CNI Overlay with the Cilium dataplane and network policy (enforces NetworkPolicies) |
+  | Identity | OIDC issuer and Workload Identity; managed identity for the cluster |
+  | API access | API server accepts only the operator's public IP (`/32`); nodes have no public IPs |
+  | SSH | none (`--no-ssh-key`) |
+
+  Max nodes is 4, not 5: the default regional quota is 10 vCPUs, and AKS needs a surge node during
+  upgrades. Every image is public (ghcr.io, Docker Hub, quay.io, ...), so no registry is needed.
 - **GitOps**: Argo CD syncs the whole platform from this repo's `main` branch; see
   [Continuous Deployment with Argo CD](#continuous-deployment-with-argo-cd).
-- **GCP resources through Crossplane** (`k8s/platform/`): the GCP provider family plus its
-  functions, and a `ClusterProviderConfig` that authenticates as the `crossplane-gcp` service
-  account via Workload Identity. No managed resources exist yet. To add one, put a sub-provider
-  (e.g. `provider-gcp-storage`) in `crossplane-packages.yaml` with
-  `runtimeConfigRef: {name: provider-gcp}`, add an XRD + Composition, and grant `crossplane-gcp`
-  the narrowest matching role in `gke-deploy.sh`.
 - **Secrets**: nothing secret is committed, or passed through a script into the cluster.
-  - Values live in 1Password. `gke-secrets-seed.sh` copies them into **GCP Secret Manager**.
+  - Values live in 1Password. `aks-secrets-seed.sh` copies them into **Azure Key Vault**.
   - The **External Secrets Operator** builds Kubernetes Secrets from `ExternalSecret` manifests.
-    It authenticates as the `external-secrets` service account via Workload Identity, and can read
-    exactly the seeded secrets.
-  - No secret store or secrets are defined yet. Before adding an `ExternalSecret`, add a
-    `ClusterSecretStore` in `k8s/platform/` with namespace-scoped access conditions.
-    Each secret is an entry in `gke-secrets-seed.sh`, `.env.example` and `REQUIRED_SECRETS` in
-    `gke-bootstrap.sh`.
+    It will authenticate through Workload Identity and read exactly the seeded secrets.
+  - No vault, secret store or secrets are defined yet. Before adding an `ExternalSecret`, create
+    the vault and a federated identity for `external-secrets/external-secrets` (an admin step),
+    then add a `ClusterSecretStore` in `k8s/` with namespace-scoped access conditions. Each secret
+    is an entry in `aks-secrets-seed.sh` and `.env.example`.
 - **Tools**:
   - **[Headlamp](https://headlamp.dev/)** is a Kubernetes web UI, bound to the read-only `view`
     ClusterRole.
@@ -78,25 +62,24 @@ Google IAM, and binds on `127.0.0.1` only.
 
 ## Continuous Deployment with Argo CD
 
-`gke-bootstrap.sh` does two things by hand: it Helm-installs Argo CD and applies one **root**
+`aks-bootstrap.sh` does two things by hand: it Helm-installs Argo CD and applies one **root**
 Application (`k8s/argocd/root-application.yaml`). The root Application syncs every other
 Application from `k8s/argocd/apps/` ("app of apps"), Argo CD itself included. From then on, a
 version bump, a values change or a new manifest is a merged commit to
-`https://github.com/miqui/gke-ai-observer.git`. The repo must be public, because Argo CD clones it
+`https://github.com/miqui/aks-operator-lab.git`. The repo must be public, because Argo CD clones it
 anonymously.
 
 | Wave | Application | Source |
 | --- | --- | --- |
-| -4 | `argocd` (self-managed), `external-secrets`, `crossplane` | upstream charts + values in `k8s/argocd/`, `k8s/external-secrets/`, `k8s/crossplane/` |
-| -3 | `kyverno`, `platform` | Kyverno chart; `k8s/platform/` (Crossplane GCP provider family/functions/config) |
+| -4 | `argocd` (self-managed), `external-secrets` | upstream charts + values in `k8s/argocd/`, `k8s/external-secrets/` |
+| -3 | `kyverno` | Kyverno chart |
 | -2 | `kyverno-policies` | `k8s/policies/`: enforce rules exist before any workload syncs |
 | -1 | `headlamp`, `polaris`, `trivy-operator` | charts + values |
 
 A wave only starts once the previous one is Healthy. That depends on the Application health check
-in `k8s/argocd/argocd-values.yaml`, which also teaches Argo CD to read Crossplane's Ready
-conditions. Every Application runs `automated: {prune: true, selfHeal: true}`, except Argo CD's
-own, which doesn't prune. Day-to-day commands are in [ARGOCD.md](ARGOCD.md), and chart versions
-in [HELM.md](HELM.md).
+in `k8s/argocd/argocd-values.yaml`. Every Application runs `automated: {prune: true, selfHeal:
+true}`, except Argo CD's own, which doesn't prune. Day-to-day commands are in
+[ARGOCD.md](ARGOCD.md), and chart versions in [HELM.md](HELM.md).
 
 ## Policy as Code with Kyverno
 
@@ -120,47 +103,55 @@ checked in CI (`.github/workflows/policy-check.yml` → `check-policies.sh`). Th
 
 Debugging commands are in [KYVERNO.md](KYVERNO.md).
 
-## Deployment to AKS (Azure)
+## Deployment to AKS
 
-The cluster mirrors the GKE one: zonal, 2 vCPU / 8 GB nodes, 30 GB OS disk, autoscaling, NetworkPolicy
-enforcement and Workload Identity. Only the cluster is scripted so far.
-
-| Setting | Value |
-| --- | --- |
-| Resource group / region | `rg-aks-lab` / `eastus` |
-| Cluster | `dev-cluster`, free tier, zone 1, `stable` auto-upgrade channel |
-| Nodes | `Standard_D2s_v6` (2 vCPU / 8 GB), 30 GB managed OS disk, autoscaling 3-4 |
-| Network | Azure CNI Overlay with the Cilium dataplane and network policy |
-| Identity | OIDC issuer and Workload Identity; managed identity for the cluster |
-| API access | API server accepts only the operator's public IP (`/32`); nodes have no public IPs |
-| SSH | none (`--no-ssh-key`) |
-
-Max nodes is 4, not 5: the default regional quota is 10 vCPUs, and AKS needs a surge node during
-upgrades.
-
-**Who runs it.** The scripts change Azure only when the signed-in CLI user matches the expected
-user: `miquidev@mmaqhotmail.onmicrosoft.com` by default, or `--user <upn>` / `AZ_USER`. Any other
-account, including the admin that set up access, is refused. `miquidev` has `Contributor` on
-`rg-aks-lab` only; the admin-side setup, including a $25/month budget alert, is in
-[AZURE.md](AZURE.md).
+Requirements:
+- `az` (Azure CLI), `kubectl` and `helm`
+- the cluster user's Azure login (see [AZURE.md](AZURE.md) for the admin-side setup)
+- the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), once secrets exist
 
 ```bash
-# Log in as the cluster user, in a separate CLI profile so the admin session is untouched
+# Log in as the cluster user, in a separate CLI profile so an admin session is untouched
 export AZURE_CONFIG_DIR=~/.azure-miquidev
 az login                                        # sign in as miquidev
-
 export SUBSCRIPTION_ID=<subscription-id>
-./aks-deploy.sh --dry-run                       # print the az aks create command, change nothing
-./aks-deploy.sh                                 # create the cluster (~5-10 min), fetch credentials
-./aks-teardown.sh                               # delete the cluster only (--yes skips the prompt)
+
+# 1. Cluster (~5-10 min). --dry-run prints the az aks create command and changes nothing.
+./aks-deploy.sh --dry-run
+./aks-deploy.sh
+
+# 2. Secrets -> Key Vault (first time, and after rotating anything in 1Password)
+VAULT_NAME=<key-vault> op run --env-file=.env -- ./aks-secrets-seed.sh
+
+# 3. Argo CD + everything else via GitOps (~5 min)
+./aks-bootstrap.sh
+
+# 4. Tools
+./aks-port-forward.sh
 ```
 
-Overridable env vars for `aks-deploy.sh`: `AZ_USER`, `RESOURCE_GROUP`, `LOCATION`, `CLUSTER`,
-`VM_SIZE`, `MIN_NODES`, `MAX_NODES`, `NODE_DISK_SIZE_GB`, `ZONE`.
+**Before the first run:** the repo must be pushed to `github.com/miqui/aks-operator-lab` (public),
+branch `main`. Argo CD syncs from there, not from your working copy. `aks-bootstrap.sh` checks
+that the repo is readable and warns about unpushed commits.
+
+**What each script does:**
+
+- `aks-deploy.sh` checks the signed-in user and the resource group, finds your public IP, and runs
+  `az aks create`. It skips creation if the cluster already exists (cluster-level settings are
+  creation-time; recreate to change them). Overridable env vars: `AZ_USER`, `RESOURCE_GROUP`,
+  `LOCATION`, `CLUSTER`, `VM_SIZE`, `MIN_NODES`, `MAX_NODES`, `NODE_DISK_SIZE_GB`, `ZONE`.
+- `aks-secrets-seed.sh` creates or updates the Key Vault secrets listed in its `SECRETS` array. It
+  adds a version only when the value changed.
+- `aks-bootstrap.sh` runs a preflight (user, kubectl context, public repo). It then Helm-installs
+  Argo CD, applies the root Application and waits until every Application is Synced + Healthy.
+  Safe to re-run.
+- `aks-teardown.sh` deletes the cluster only (`--yes` skips the prompt). The resource group, role
+  assignment, budget and Key Vault are kept.
+- `aks-port-forward.sh` opens the local tunnels to the tools.
 
 **Cost.** Nodes bill while running: three `D2s_v6` cost roughly $0.29/hour (about $210/month), so
-the $25 budget lasts only a few days of continuous running. The budget sends emails and does not stop
-spending. Delete the cluster when idle.
+the $25 budget lasts only a few days of continuous running. The budget sends emails and does not
+stop spending. Stop the cluster with `az aks stop` or delete it when idle.
 
 **If your public IP changes**, `kubectl` times out. Re-authorize it:
 
@@ -168,84 +159,28 @@ spending. Delete the cluster when idle.
 az aks update -g rg-aks-lab -n dev-cluster --api-server-authorized-ip-ranges <new-ip>/32
 ```
 
-**Secrets (planned).** 1Password stays the source of truth. A seed script will copy values into
-Azure Key Vault, and External Secrets will read from it through Workload Identity, replacing the
-GCP Secret Manager flow. Nothing secret passes through the scripts or the cluster.
-
-## Deployment to GKE (to be removed)
-
-Requirements:
-- `gcloud`, authenticated as an owner of the project
-- `kubectl` and `helm`
-- the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), once secrets exist
-
-```bash
-export PROJECT_ID=dev-ai-1
-
-# 1. GCP foundation + cluster (~10 min)
-./gke-deploy.sh
-
-# 2. Secrets -> Secret Manager (first time, and after rotating anything in 1Password)
-op run --env-file=.env -- ./gke-secrets-seed.sh
-
-# 3. Argo CD + everything else via GitOps
-./gke-bootstrap.sh
-
-# 4. Tools
-./gke-port-forward.sh
-```
-
-**Before the first run:** push this repo to `github.com/miqui/gke-ai-observer` (public), branch
-`main`. Argo CD syncs from there, not from your working copy. `gke-bootstrap.sh` checks that the
-repo is readable and warns about unpushed commits.
-
-**What each script does:**
-
-- `gke-deploy.sh` is idempotent; every step skips what already exists. It:
-  - checks your IAM permissions and enables the APIs;
-  - creates the service accounts (`gke-dev-nodes`, `crossplane-gcp`, `external-secrets`) and the
-    node SA's role;
-  - creates the VPC, subnet, Cloud Router + NAT, the cluster and the webhook firewall rule;
-  - binds Workload Identity for Crossplane and External Secrets.
-- `gke-secrets-seed.sh` creates or updates the Secret Manager secrets listed in its `SECRETS`
-  array, labelled `managed-by=gke-secrets-seed`. It adds a version only when the value changed, and
-  grants `external-secrets` access to exactly those secrets.
-- `gke-bootstrap.sh` runs a preflight (context, project guard, Secret Manager, public repo).
-  It then Helm-installs Argo CD, applies the root Application and waits until every Application is
-  Synced + Healthy. Safe to re-run.
-- `gke-teardown.sh` works in dependency order:
-  - It stops Argo CD reconciling, then deletes the cluster.
-  - It then removes what a cluster deletion leaves behind: NEGs, and the unattached PD-CSI disks
-    behind the PVCs.
-  - Finally it removes the firewall rules, NAT, router, subnet and VPC.
-  - Secrets and service accounts are kept unless you pass `--purge`. `--yes` skips the prompt.
-
-**If your public IP changes**, the control plane stops answering (`kubectl` times out).
-Re-authorize your IP with the command `gke-deploy.sh` prints at the end.
-
 **Validate a teardown** (nothing should be listed):
 
 ```bash
-gcloud container clusters list --project=$PROJECT_ID
-gcloud compute disks list --project=$PROJECT_ID --filter='name~^pvc-'
-gcloud compute networks list --project=$PROJECT_ID --filter=name=dev-vpc
+az aks list -g rg-aks-lab -o table
+az group list --query "[?starts_with(name,'MC_')].name" -o tsv      # the node resource group
 ```
 
-Operational notes on GKE events that look alarming but aren't are in [GKE-OPS.md](GKE-OPS.md);
+Operational notes on events that look alarming but aren't are in [AKS-OPS.md](AKS-OPS.md);
 everyday `kubectl` is in [KUBECTL.md](KUBECTL.md).
 
 ### Headlamp
 
 Headlamp can show everything in the cluster, so it gets the least access that is still useful.
-`./gke-port-forward.sh headlamp` serves it at `http://localhost:4466`. Log in with a short-lived
+`./aks-port-forward.sh headlamp` serves it at `http://localhost:4466`. Log in with a short-lived
 token for its `view`-bound ServiceAccount (see [Stack URLs](#stack-urls)).
 
-For anything that needs more access (editing, exec), use `kubectl` with your own Google identity.
-Don't widen the `headlamp` binding: every Headlamp login would become an admin login.
+For anything that needs more access (editing, exec), use `kubectl` with your own cluster
+credentials. Don't widen the `headlamp` binding: every Headlamp login would become an admin login.
 
 ### Polaris
 
-`./gke-port-forward.sh polaris` serves it at `http://localhost:8082`. It shows an overall score
+`./aks-port-forward.sh polaris` serves it at `http://localhost:8082`. It shows an overall score
 and, per workload, which built-in checks fail at `warning`/`danger`.
-- GKE-managed namespaces are exempt (`config.exemptions` in `k8s/polaris/polaris-values.yaml`).
+- Platform-managed namespaces are exempt (`config.exemptions` in `k8s/polaris/polaris-values.yaml`).
 - Findings are advice. Anything that must be blocked belongs in a Kyverno policy.

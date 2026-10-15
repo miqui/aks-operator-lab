@@ -1,23 +1,19 @@
 # kubectl Commands — Cluster Access and Platform Status
 
-Everyday `kubectl` for the GKE dev cluster. Argo CD specifics are in [ARGOCD.md](ARGOCD.md),
+Everyday `kubectl` for the AKS dev cluster. Argo CD specifics are in [ARGOCD.md](ARGOCD.md),
 Kyverno in [KYVERNO.md](KYVERNO.md), Trivy in [TRIVY.md](TRIVY.md).
 
-## Cluster access and platform status (GKE)
+## Cluster access and platform status (AKS)
 
 ```bash
-gcloud container clusters get-credentials dev-cluster --zone=us-central1-a --project=dev-ai-1
-kubectl config current-context          # gke_dev-ai-1_us-central1-a_dev-cluster
+az aks get-credentials -g rg-aks-lab -n dev-cluster      # as miquidev
+kubectl config current-context          # dev-cluster
 kubectl get nodes -o wide
 
 # Everything is an Argo CD Application (see ARGOCD.md)
 kubectl get applications -n argocd -o custom-columns='NAME:.metadata.name,WAVE:.metadata.annotations.argocd\.argoproj\.io/sync-wave,SYNC:.status.sync.status,HEALTH:.status.health.status'
 
-# Crossplane
-kubectl get providers.pkg.crossplane.io,functions.pkg.crossplane.io
-kubectl get managed                                     # every Crossplane managed resource (none yet)
-
-# Secrets from Secret Manager (no stores or secrets configured yet)
+# Secrets from Azure Key Vault (no stores or secrets configured yet)
 kubectl get externalsecrets -A                          # STATUS should be SecretSynced
 kubectl get clustersecretstores
 
@@ -29,7 +25,7 @@ kubectl get networkpolicy -A
 ## Tools (port-forward only)
 
 ```bash
-./gke-port-forward.sh                   # all of them; or e.g. ./gke-port-forward.sh argocd
+./aks-port-forward.sh                   # all of them; or e.g. ./aks-port-forward.sh argocd
 kubectl port-forward -n headlamp svc/headlamp 4466:80   # the same, by hand
 ```
 
@@ -62,7 +58,7 @@ The tell-tale line is `Error serving health check request ... context canceled` 
 `"duration":5004874461`: the health check normally answers in about 1ms, and here it ran into the
 probe's `timeoutSeconds: 5`. That points at a stall around the process (CPU or memory contention on
 the node), not at repo-server being slow. This was seen on an earlier, heavily packed local cluster;
-on GKE check node pressure first:
+on AKS check node pressure first:
 
 ```bash
 kubectl top nodes

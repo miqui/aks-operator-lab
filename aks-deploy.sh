@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
-# aks-deploy.sh — create the dev AKS cluster (counterpart of gke-deploy.sh).
+# aks-deploy.sh — create the dev AKS cluster.
 #
-# Mirrors the GKE cluster: zonal, 2 vCPU / 8 GB nodes, 30 GB OS disk, autoscaling, NetworkPolicy
-# enforcement (Cilium dataplane), Workload Identity, API server locked to the operator's IP,
-# nodes without public IPs.
+# Zonal, 2 vCPU / 8 GB nodes, 30 GB OS disk, autoscaling, NetworkPolicy enforcement (Cilium
+# dataplane), Workload Identity, API server locked to the operator's IP, nodes without public IPs.
 #
 # Safety: this script changes Azure ONLY when the signed-in CLI user is the expected user
 # (default miquidev). Anyone else, including the admin account, is refused.
@@ -33,7 +32,7 @@ SUBSCRIPTION_ID="${SUBSCRIPTION_ID:?SUBSCRIPTION_ID is required}"
 RESOURCE_GROUP="${RESOURCE_GROUP:-rg-aks-lab}"
 LOCATION="${LOCATION:-eastus}"
 CLUSTER="${CLUSTER:-dev-cluster}"
-VM_SIZE="${VM_SIZE:-Standard_D2s_v6}"   # 2 vCPU / 8 GB, like GKE's e2-standard-2
+VM_SIZE="${VM_SIZE:-Standard_D2s_v6}"   # 2 vCPU / 8 GB
 MIN_NODES="${MIN_NODES:-3}"
 # The default regional quota is 10 vCPUs: 4 nodes x 2 vCPU + 1 upgrade surge node = 10.
 MAX_NODES="${MAX_NODES:-4}"

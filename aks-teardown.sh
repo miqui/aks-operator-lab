@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# aks-teardown.sh — delete the dev AKS cluster (counterpart of gke-teardown.sh).
+# aks-teardown.sh — delete the dev AKS cluster.
 # Keeps the resource group, role assignment and budget. Runs only as the expected user.
 #
 # Usage: SUBSCRIPTION_ID=<id> ./aks-teardown.sh [--user <upn>] [--yes]

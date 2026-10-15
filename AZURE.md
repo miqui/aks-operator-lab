@@ -80,12 +80,48 @@ Alerts fire at 80% ($20) and 100% ($25) of actual spend on `rg-aks-lab`.
 
 ## 7. Test as `miquidev` (cheap, then clean up)
 
-```bash
-az aks create -g rg-aks-lab -n aks-test --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys
-az aks delete -g rg-aks-lab -n aks-test --yes
-```
+The real cluster is created by `aks-deploy.sh` (see section 8). It passes `--no-ssh-key`, so no
+SSH key is generated or used.
 
 Stop or delete clusters when not in use: `az aks stop -g rg-aks-lab -n <cluster>`.
+
+## 8. Cluster lifecycle (as `miquidev`, in a separate CLI profile)
+
+The cluster is created and deleted by the scripts in this repo, never by the admin account.
+The scripts refuse to run unless the signed-in user is `miquidev`.
+
+```bash
+export AZURE_CONFIG_DIR=~/.azure-miquidev
+az login                                           # sign in as miquidev
+export SUBSCRIPTION_ID=<SUBSCRIPTION_ID>
+
+./aks-deploy.sh --dry-run                          # show the az aks create command only
+./aks-deploy.sh                                    # create the cluster, fetch credentials
+./aks-bootstrap.sh                                 # Argo CD + the GitOps platform
+az aks stop  -g rg-aks-lab -n dev-cluster          # pause: stops node billing, keeps the cluster
+az aks start -g rg-aks-lab -n dev-cluster
+./aks-teardown.sh --yes                            # delete the cluster only
+```
+
+Quota checks used before choosing the VM size (read-only):
+
+```bash
+az vm list-usage -l eastus --query "[].[name.value,currentValue,limit]" -o tsv
+az vm list-skus -l eastus --resource-type virtualMachines --size Standard_D2s_v6 -o table
+```
+
+Billable-resource check after teardown (read-only, as the admin):
+
+```bash
+az resource list --query "[].{name:name, type:type, rg:resourceGroup}" -o table
+```
+
+## 9. Key Vault for secrets (planned, admin step)
+
+1Password stays the source of truth; `aks-secrets-seed.sh` copies values into Key Vault and
+External Secrets reads them through Workload Identity. Creating the vault, the federated identity
+and the role assignments needs rights `miquidev` does not have, so they are admin steps. Nothing
+has been created yet.
 
 ## Notes
 
